@@ -1,0 +1,115 @@
+package main
+
+import (
+	"errors"
+	"log"
+	"os"
+
+	"github.com/hashicorp/vault/helper/pluginutil"
+	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/logical/framework"
+	"github.com/hashicorp/vault/logical/plugin"
+)
+
+func main() {
+	apiClientMeta := &pluginutil.APIClientMeta{}
+	flags := apiClientMeta.FlagSet()
+	flags.Parse(os.Args[1:])
+
+	tlsConfig := apiClientMeta.GetTLSConfig()
+	tlsProviderFunc := pluginutil.VaultPluginTLSProvider(tlsConfig)
+
+	if err := plugin.Serve(&plugin.ServeOpts{
+		BackendFactoryFunc: Factory,
+		TLSProviderFunc:    tlsProviderFunc,
+	}); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func Factory(c *logical.BackendConfig) (logical.Backend, error) {
+	b := Backend(c)
+	if err := b.Setup(c); err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+type backend struct {
+	*framework.Backend
+}
+
+func Backend(c *logical.BackendConfig) *backend {
+	var b backend
+
+	b.Backend = &framework.Backend{
+		BackendType: logical.TypeCredential,
+		AuthRenew:   b.pathAuthRenew,
+		PathsSpecial: &logical.Paths{
+			Unauthenticated: []string{"login"},
+		},
+		Paths: []*framework.Path{
+			&framework.Path{
+				Pattern: "login",
+				Fields: map[string]*framework.FieldSchema{
+					"password": &framework.FieldSchema{
+						Type: framework.TypeString,
+					},
+				},
+				Callbacks: map[logical.Operation]framework.OperationFunc{
+					logical.UpdateOperation: b.pathAuthLogin,
+				},
+			},
+		},
+	}
+
+	return &b
+}
+
+func (b *backend) pathAuthLogin(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	password := d.Get("password").(string)
+
+	if password != "super-secret-password" {
+		return nil, logical.ErrPermissionDenied
+	}
+
+	ttl, _, err := b.SanitizeTTLStr("30s", "1h")
+	if err != nil {
+		return nil, err
+	}
+
+	// Compose the response
+	return &logical.Response{
+		Auth: &logical.Auth{
+			InternalData: map[string]interface{}{
+				"secret_value": "abcd1234",
+			},
+			Policies: []string{"my-policy", "other-policy"},
+			Metadata: map[string]string{
+				"fruit": "banana",
+			},
+			LeaseOptions: logical.LeaseOptions{
+				TTL:       ttl,
+				Renewable: true,
+			},
+		},
+	}, nil
+}
+
+func (b *backend) pathAuthRenew(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	if req.Auth == nil {
+		return nil, errors.New("request auth was nil")
+	}
+
+	secretValue := req.Auth.InternalData["secret_value"].(string)
+	if secretValue != "abcd1234" {
+		return nil, errors.New("internal data does not match")
+	}
+
+	ttl, maxTTL, err := b.SanitizeTTLStr("30s", "1h")
+	if err != nil {
+		return nil, err
+	}
+
+	return framework.LeaseExtend(ttl, maxTTL, b.System())(req, d)
+}
