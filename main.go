@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"errors"
 	"log"
 	"os"
@@ -69,7 +70,7 @@ func Backend(c *logical.BackendConfig) *backend {
 func (b *backend) pathAuthLogin(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	password := d.Get("password").(string)
 
-	if password != "super-secret-password" {
+	if subtle.ConstantTimeCompare([]byte(password), []byte("super-secret-password")) != 1 {
 		return nil, logical.ErrPermissionDenied
 	}
 
