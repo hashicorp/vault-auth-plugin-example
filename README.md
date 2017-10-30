@@ -7,6 +7,8 @@ and maintain your own Vault auth plugin.
 **This code is for educational purposes only. It demonstrates a basic Vault
 Auth Plugin. It is not secure. Do not use it in production.**
 
+For more information, see the [accompanying blog post](https://www.hashicorp.com/blog/building-a-vault-secure-plugin).
+
 ## Setup
 
 The setup guide assumes some familiarity with Vault and Vault's plugin
