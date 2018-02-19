@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/subtle"
 	"errors"
 	"log"
@@ -28,9 +29,9 @@ func main() {
 	}
 }
 
-func Factory(c *logical.BackendConfig) (logical.Backend, error) {
+func Factory(ctx context.Context, c *logical.BackendConfig) (logical.Backend, error) {
 	b := Backend(c)
-	if err := b.Setup(c); err != nil {
+	if err := b.Setup(ctx, c); err != nil {
 		return nil, err
 	}
 	return b, nil
@@ -67,7 +68,7 @@ func Backend(c *logical.BackendConfig) *backend {
 	return &b
 }
 
-func (b *backend) pathAuthLogin(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathAuthLogin(_ context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	password := d.Get("password").(string)
 
 	if subtle.ConstantTimeCompare([]byte(password), []byte("super-secret-password")) != 1 {
@@ -97,7 +98,7 @@ func (b *backend) pathAuthLogin(req *logical.Request, d *framework.FieldData) (*
 	}, nil
 }
 
-func (b *backend) pathAuthRenew(req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
 	if req.Auth == nil {
 		return nil, errors.New("request auth was nil")
 	}
@@ -112,5 +113,5 @@ func (b *backend) pathAuthRenew(req *logical.Request, d *framework.FieldData) (*
 		return nil, err
 	}
 
-	return framework.LeaseExtend(ttl, maxTTL, b.System())(req, d)
+	return framework.LeaseExtend(ttl, maxTTL, b.System())(ctx, req, d)
 }
