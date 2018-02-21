@@ -92,6 +92,15 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/hashicorp/golang-lru"
+  packages = [
+    ".",
+    "simplelru"
+  ]
+  revision = "0fb14efe8c47ae851c0034ed7a448854d3d34cf3"
+
+[[projects]]
+  branch = "master"
   name = "github.com/hashicorp/hcl"
   packages = [
     ".",
@@ -115,6 +124,7 @@
     "helper/consts",
     "helper/errutil",
     "helper/jsonutil",
+    "helper/locksutil",
     "helper/logbridge",
     "helper/logformat",
     "helper/mlock",
@@ -127,10 +137,12 @@
     "logical/framework",
     "logical/plugin",
     "logical/plugin/pb",
+    "physical",
+    "physical/inmem",
     "version"
   ]
-  revision = "5acd6a21d5a69ab49d0f7c0bf540123a9b2c696d"
-  version = "v0.9.3"
+  revision = "2e2c89a3d8d2f4876c64dee6ba3d4a5e08691aee"
+  version = "v0.9.4"
 
 [[projects]]
   branch = "master"
@@ -178,7 +190,7 @@
   branch = "master"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
-  revision = "a4e142e9c047c904fa2f1e144d9a84e6133024bc"
+  revision = "00c29f56e2386353d58c599509e8dc3801b0d716"
 
 [[projects]]
   name = "github.com/oklog/run"
