@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/hashicorp/vault/helper/errutil"
+	"github.com/hashicorp/vault/helper/parseutil"
 	"github.com/hashicorp/vault/helper/wrapping"
 	"github.com/hashicorp/vault/logical"
 )
@@ -136,6 +137,7 @@ func ProtoLeaseOptionsToLogicalLeaseOptions(l *LeaseOptions) (logical.LeaseOptio
 		Renewable: l.Renewable,
 		Increment: time.Duration(l.Increment),
 		IssueTime: t,
+		MaxTTL:    time.Duration(l.MaxTTL),
 	}, err
 }
 
@@ -150,6 +152,7 @@ func LogicalLeaseOptionsToProtoLeaseOptions(l logical.LeaseOptions) (*LeaseOptio
 		Renewable: l.Renewable,
 		Increment: int64(l.Increment),
 		IssueTime: t,
+		MaxTTL:    int64(l.MaxTTL),
 	}, err
 }
 
@@ -220,7 +223,7 @@ func LogicalRequestToProtoRequest(r *logical.Request) (*Request, error) {
 
 	headers := map[string]*Header{}
 	for k, v := range r.Headers {
-		headers[k] = &Header{v}
+		headers[k] = &Header{Header: v}
 	}
 
 	return &Request{
@@ -505,6 +508,11 @@ func LogicalAuthToProtoAuth(a *logical.Auth) (*Auth, error) {
 		return nil, err
 	}
 
+	boundCIDRs := make([]string, len(a.BoundCIDRs))
+	for i, cidr := range a.BoundCIDRs {
+		boundCIDRs[i] = cidr.String()
+	}
+
 	return &Auth{
 		LeaseOptions: lo,
 		InternalData: string(buf[:]),
@@ -518,6 +526,7 @@ func LogicalAuthToProtoAuth(a *logical.Auth) (*Auth, error) {
 		EntityID:     a.EntityID,
 		Alias:        LogicalAliasToProtoAlias(a.Alias),
 		GroupAliases: groupAliases,
+		BoundCidrs:   boundCIDRs,
 	}, nil
 }
 
@@ -542,6 +551,16 @@ func ProtoAuthToLogicalAuth(a *Auth) (*logical.Auth, error) {
 		return nil, err
 	}
 
+	boundCIDRs, err := parseutil.ParseAddrs(a.BoundCidrs)
+	if err != nil {
+		return nil, err
+	}
+	if len(boundCIDRs) == 0 {
+		// On inbound auths, if auth.BoundCIDRs is empty, it will be nil.
+		// Let's match that behavior outbound.
+		boundCIDRs = nil
+	}
+
 	return &logical.Auth{
 		LeaseOptions: lo,
 		InternalData: data,
@@ -555,5 +574,6 @@ func ProtoAuthToLogicalAuth(a *Auth) (*logical.Auth, error) {
 		EntityID:     a.EntityID,
 		Alias:        ProtoAliasToLogicalAlias(a.Alias),
 		GroupAliases: groupAliases,
+		BoundCIDRs:   boundCIDRs,
 	}, nil
 }
