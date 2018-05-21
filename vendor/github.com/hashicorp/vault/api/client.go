@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -16,10 +17,11 @@ import (
 
 	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/go-cleanhttp"
+	retryablehttp "github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/go-rootcerts"
 	"github.com/hashicorp/vault/helper/parseutil"
-	"github.com/sethgrid/pester"
 	"golang.org/x/net/http2"
+	"golang.org/x/time/rate"
 )
 
 const EnvVaultAddress = "VAULT_ADDR"
@@ -34,6 +36,7 @@ const EnvVaultWrapTTL = "VAULT_WRAP_TTL"
 const EnvVaultMaxRetries = "VAULT_MAX_RETRIES"
 const EnvVaultToken = "VAULT_TOKEN"
 const EnvVaultMFA = "VAULT_MFA"
+const EnvRateLimit = "VAULT_RATE_LIMIT"
 
 // WrappingLookupFunc is a function that, given an HTTP verb and a path,
 // returns an optional string duration to be used for response wrapping (e.g.
@@ -59,8 +62,9 @@ type Config struct {
 	// (or http.DefaultClient).
 	HttpClient *http.Client
 
-	// MaxRetries controls the maximum number of times to retry when a 5xx error
-	// occurs. Set to 0 or less to disable retrying. Defaults to 0.
+	// MaxRetries controls the maximum number of times to retry when a 5xx
+	// error occurs. Set to 0 to disable retrying. Defaults to 2 (for a total
+	// of three tries).
 	MaxRetries int
 
 	// Timeout is for setting custom timeout parameter in the HttpClient
@@ -69,6 +73,16 @@ type Config struct {
 	// If there is an error when creating the configuration, this will be the
 	// error
 	Error error
+
+	// The Backoff function to use; a default is used if not provided
+	Backoff retryablehttp.Backoff
+
+	// Limiter is the rate limiter used by the client.
+	// If this pointer is nil, then there will be no limit set.
+	// In contrast, if this pointer is set, even to an empty struct,
+	// then that limiter will be used. Note that an empty Limiter
+	// is equivalent blocking all events.
+	Limiter *rate.Limiter
 }
 
 // TLSConfig contains the parameters needed to configure TLS on the HTTP client
@@ -131,11 +145,14 @@ func DefaultConfig() *Config {
 	// but in e.g. http_test actual redirect handling is necessary
 	config.HttpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		// Returning this value causes the Go net library to not close the
-		// response body and to nil out the error. Otherwise pester tries
-		// three times on every redirect because it sees an error from this
+		// response body and to nil out the error. Otherwise retry clients may
+		// try three times on every redirect because it sees an error from this
 		// function (to prevent redirects) passing through to it.
 		return http.ErrUseLastResponse
 	}
+
+	config.Backoff = retryablehttp.LinearJitterBackoff
+	config.MaxRetries = 2
 
 	return config
 }
@@ -160,7 +177,7 @@ func (c *Config) ConfigureTLS(t *TLSConfig) error {
 		}
 		foundClientCert = true
 	case t.ClientCert != "" || t.ClientKey != "":
-		return fmt.Errorf("Both client cert and client key must be provided")
+		return fmt.Errorf("both client cert and client key must be provided")
 	}
 
 	if t.CACert != "" || t.CAPath != "" {
@@ -205,6 +222,7 @@ func (c *Config) ReadEnvironment() error {
 	var envInsecure bool
 	var envTLSServerName string
 	var envMaxRetries *uint64
+	var limit *rate.Limiter
 
 	// Parse the environment variables
 	if v := os.Getenv(EnvVaultAddress); v != "" {
@@ -229,10 +247,17 @@ func (c *Config) ReadEnvironment() error {
 	if v := os.Getenv(EnvVaultClientKey); v != "" {
 		envClientKey = v
 	}
+	if v := os.Getenv(EnvRateLimit); v != "" {
+		rateLimit, burstLimit, err := parseRateLimit(v)
+		if err != nil {
+			return err
+		}
+		limit = rate.NewLimiter(rate.Limit(rateLimit), burstLimit)
+	}
 	if t := os.Getenv(EnvVaultClientTimeout); t != "" {
 		clientTimeout, err := parseutil.ParseDurationSecond(t)
 		if err != nil {
-			return fmt.Errorf("Could not parse %s", EnvVaultClientTimeout)
+			return fmt.Errorf("could not parse %q", EnvVaultClientTimeout)
 		}
 		envClientTimeout = clientTimeout
 	}
@@ -240,7 +265,7 @@ func (c *Config) ReadEnvironment() error {
 		var err error
 		envInsecure, err = strconv.ParseBool(v)
 		if err != nil {
-			return fmt.Errorf("Could not parse VAULT_SKIP_VERIFY")
+			return fmt.Errorf("could not parse VAULT_SKIP_VERIFY")
 		}
 	}
 	if v := os.Getenv(EnvVaultTLSServerName); v != "" {
@@ -260,6 +285,8 @@ func (c *Config) ReadEnvironment() error {
 	c.modifyLock.Lock()
 	defer c.modifyLock.Unlock()
 
+	c.Limiter = limit
+
 	if err := c.ConfigureTLS(t); err != nil {
 		return err
 	}
@@ -269,7 +296,7 @@ func (c *Config) ReadEnvironment() error {
 	}
 
 	if envMaxRetries != nil {
-		c.MaxRetries = int(*envMaxRetries) + 1
+		c.MaxRetries = int(*envMaxRetries)
 	}
 
 	if envClientTimeout != 0 {
@@ -277,6 +304,21 @@ func (c *Config) ReadEnvironment() error {
 	}
 
 	return nil
+}
+
+func parseRateLimit(val string) (rate float64, burst int, err error) {
+
+	_, err = fmt.Sscanf(val, "%f:%d", &rate, &burst)
+	if err != nil {
+		rate, err = strconv.ParseFloat(val, 64)
+		if err != nil {
+			err = fmt.Errorf("%v was provided but incorrectly formatted", EnvRateLimit)
+		}
+		burst = int(rate)
+	}
+
+	return rate, burst, err
+
 }
 
 // Client is the client to the Vault API. Create a client with NewClient.
@@ -348,7 +390,7 @@ func (c *Client) SetAddress(addr string) error {
 
 	var err error
 	if c.addr, err = url.Parse(addr); err != nil {
-		return fmt.Errorf("failed to set address: %v", err)
+		return errwrap.Wrapf("failed to set address: {{err}}", err)
 	}
 
 	return nil
@@ -360,6 +402,17 @@ func (c *Client) Address() string {
 	defer c.modifyLock.RUnlock()
 
 	return c.addr.String()
+}
+
+// SetLimiter will set the rate limiter for this client.
+// This method is thread-safe.
+// rateLimit and burst are specified according to https://godoc.org/golang.org/x/time/rate#NewLimiter
+func (c *Client) SetLimiter(rateLimit float64, burst int) {
+	c.modifyLock.RLock()
+	c.config.modifyLock.Lock()
+	defer c.config.modifyLock.Unlock()
+	defer c.modifyLock.RUnlock()
+	c.config.Limiter = rate.NewLimiter(rate.Limit(rateLimit), burst)
 }
 
 // SetMaxRetries sets the number of retries that will be used in the case of certain errors
@@ -380,6 +433,15 @@ func (c *Client) SetClientTimeout(timeout time.Duration) {
 	c.modifyLock.RUnlock()
 
 	c.config.Timeout = timeout
+}
+
+// CurrentWrappingLookupFunc sets a lookup function that returns desired wrap TTLs
+// for a given operation and path
+func (c *Client) CurrentWrappingLookupFunc() WrappingLookupFunc {
+	c.modifyLock.RLock()
+	defer c.modifyLock.RUnlock()
+
+	return c.wrappingLookupFunc
 }
 
 // SetWrappingLookupFunc sets a lookup function that returns desired wrap TTLs
@@ -434,6 +496,16 @@ func (c *Client) SetHeaders(headers http.Header) {
 	c.headers = headers
 }
 
+// SetBackoff sets the backoff function to be used for future requests.
+func (c *Client) SetBackoff(backoff retryablehttp.Backoff) {
+	c.modifyLock.RLock()
+	c.config.modifyLock.Lock()
+	defer c.config.modifyLock.Unlock()
+	c.modifyLock.RUnlock()
+
+	c.config.Backoff = backoff
+}
+
 // Clone creates a new client with the same configuration. Note that the same
 // underlying http.Client is used; modifying the client from more than one
 // goroutine at once may not be safe, so modify the client as needed and then
@@ -449,6 +521,8 @@ func (c *Client) Clone() (*Client, error) {
 		HttpClient: config.HttpClient,
 		MaxRetries: config.MaxRetries,
 		Timeout:    config.Timeout,
+		Backoff:    config.Backoff,
+		Limiter:    config.Limiter,
 	}
 	config.modifyLock.RUnlock()
 
@@ -528,9 +602,15 @@ func (c *Client) NewRequest(method, requestPath string) *Request {
 // a Vault server not configured with this client. This is an advanced operation
 // that generally won't need to be called externally.
 func (c *Client) RawRequest(r *Request) (*Response, error) {
+
 	c.modifyLock.RLock()
 	c.config.modifyLock.RLock()
 	defer c.config.modifyLock.RUnlock()
+
+	if c.config.Limiter != nil {
+		c.config.Limiter.Wait(context.Background())
+	}
+
 	token := c.token
 	c.modifyLock.RUnlock()
 
@@ -539,19 +619,33 @@ func (c *Client) RawRequest(r *Request) (*Response, error) {
 		return !unicode.IsPrint(c)
 	})
 	if idx != -1 {
-		return nil, fmt.Errorf("Configured Vault token contains non-printable characters and cannot be used.")
+		return nil, fmt.Errorf("configured Vault token contains non-printable characters and cannot be used")
 	}
 
 	redirectCount := 0
 START:
-	req, err := r.ToHTTP()
+	req, err := r.toRetryableHTTP(false)
 	if err != nil {
 		return nil, err
 	}
+	if req == nil {
+		return nil, fmt.Errorf("nil request created")
+	}
 
-	client := pester.NewExtendedClient(c.config.HttpClient)
-	client.Backoff = pester.LinearJitterBackoff
-	client.MaxRetries = c.config.MaxRetries
+	backoff := c.config.Backoff
+	if backoff == nil {
+		backoff = retryablehttp.LinearJitterBackoff
+	}
+
+	client := &retryablehttp.Client{
+		HTTPClient:   c.config.HttpClient,
+		RetryWaitMin: 1000 * time.Millisecond,
+		RetryWaitMax: 1500 * time.Millisecond,
+		RetryMax:     c.config.MaxRetries,
+		CheckRetry:   retryablehttp.DefaultRetryPolicy,
+		Backoff:      backoff,
+		ErrorHandler: retryablehttp.PassthroughErrorHandler,
+	}
 
 	var result *Response
 	resp, err := client.Do(req)
@@ -560,8 +654,8 @@ START:
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "tls: oversized") {
-			err = fmt.Errorf(
-				"%s\n\n"+
+			err = errwrap.Wrapf(
+				"{{err}}\n\n"+
 					"This error usually means that the server is running with TLS disabled\n"+
 					"but the client is configured to use TLS. Please either enable TLS\n"+
 					"on the server or run the client with -address set to an address\n"+

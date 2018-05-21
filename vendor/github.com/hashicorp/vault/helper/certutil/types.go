@@ -20,6 +20,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/hashicorp/errwrap"
 	"github.com/hashicorp/vault/helper/errutil"
 )
 
@@ -42,7 +43,7 @@ const (
 )
 
 // TLSUsage controls whether the intended usage of a *tls.Config
-// returned from ParsedCertBundle.GetTLSConfig is for server use,
+// returned from ParsedCertBundle.getTLSConfig is for server use,
 // client use, or both, which affects which values are set
 type TLSUsage int
 
@@ -211,7 +212,7 @@ func (c *CertBundle) ToParsedCertBundle() (*ParsedCertBundle, error) {
 			result.CAChain = append(result.CAChain, certBlock)
 		}
 
-	// For backwards compabitibility
+	// For backwards compatibility
 	case len(c.IssuingCA) > 0:
 		pemBlock, _ = pem.Decode([]byte(c.IssuingCA))
 		if pemBlock == nil {
@@ -254,12 +255,12 @@ func (p *ParsedCertBundle) ToCertBundle() (*CertBundle, error) {
 
 	if p.CertificateBytes != nil && len(p.CertificateBytes) > 0 {
 		block.Bytes = p.CertificateBytes
-		result.Certificate = string(pem.EncodeToMemory(&block))
+		result.Certificate = strings.TrimSpace(string(pem.EncodeToMemory(&block)))
 	}
 
 	for _, caCert := range p.CAChain {
 		block.Bytes = caCert.Bytes
-		certificate := string(pem.EncodeToMemory(&block))
+		certificate := strings.TrimSpace(string(pem.EncodeToMemory(&block)))
 
 		result.CAChain = append(result.CAChain, certificate)
 	}
@@ -279,7 +280,7 @@ func (p *ParsedCertBundle) ToCertBundle() (*CertBundle, error) {
 			}
 		}
 
-		result.PrivateKey = string(pem.EncodeToMemory(&block))
+		result.PrivateKey = strings.TrimSpace(string(pem.EncodeToMemory(&block)))
 	}
 
 	return result, nil
@@ -293,10 +294,10 @@ func (p *ParsedCertBundle) Verify() error {
 	if p.PrivateKey != nil && p.Certificate != nil {
 		equal, err := ComparePublicKeys(p.Certificate.PublicKey, p.PrivateKey.Public())
 		if err != nil {
-			return fmt.Errorf("could not compare public and private keys: %s", err)
+			return errwrap.Wrapf("could not compare public and private keys: {{err}}", err)
 		}
 		if !equal {
-			return fmt.Errorf("Public key of certificate does not match private key")
+			return fmt.Errorf("public key of certificate does not match private key")
 		}
 	}
 
@@ -307,7 +308,7 @@ func (p *ParsedCertBundle) Verify() error {
 				return fmt.Errorf("certificate %d of certificate chain is not a certificate authority", i+1)
 			}
 			if !bytes.Equal(certPath[i].Certificate.AuthorityKeyId, caCert.Certificate.SubjectKeyId) {
-				return fmt.Errorf("certificate %d of certificate chain ca trust path is incorrect (%s/%s)",
+				return fmt.Errorf("certificate %d of certificate chain ca trust path is incorrect (%q/%q)",
 					i+1, certPath[i].Certificate.Subject.CommonName, caCert.Certificate.Subject.CommonName)
 			}
 		}
@@ -316,6 +317,8 @@ func (p *ParsedCertBundle) Verify() error {
 	return nil
 }
 
+// GetCertificatePath returns a slice of certificates making up a path, pulled
+// from the parsed cert bundle
 func (p *ParsedCertBundle) GetCertificatePath() []*CertBlock {
 	var certPath []*CertBlock
 
@@ -461,7 +464,7 @@ func (p *ParsedCSRBundle) ToCSRBundle() (*CSRBundle, error) {
 
 	if p.CSRBytes != nil && len(p.CSRBytes) > 0 {
 		block.Bytes = p.CSRBytes
-		result.CSR = string(pem.EncodeToMemory(&block))
+		result.CSR = strings.TrimSpace(string(pem.EncodeToMemory(&block)))
 	}
 
 	if p.PrivateKeyBytes != nil && len(p.PrivateKeyBytes) > 0 {
@@ -476,7 +479,7 @@ func (p *ParsedCSRBundle) ToCSRBundle() (*CSRBundle, error) {
 		default:
 			return nil, errutil.InternalError{Err: "Could not determine private key type when creating block"}
 		}
-		result.PrivateKey = string(pem.EncodeToMemory(&block))
+		result.PrivateKey = strings.TrimSpace(string(pem.EncodeToMemory(&block)))
 	}
 
 	return result, nil
@@ -520,8 +523,8 @@ func (p *ParsedCSRBundle) SetParsedPrivateKey(privateKey crypto.Signer, privateK
 	p.PrivateKeyBytes = privateKeyBytes
 }
 
-// GetTLSConfig returns a TLS config generally suitable for client
-// authentiation. The returned TLS config can be modified slightly
+// getTLSConfig returns a TLS config generally suitable for client
+// authentication. The returned TLS config can be modified slightly
 // to be made suitable for a server requiring client authentication;
 // specifically, you should set the value of ClientAuth in the returned
 // config to match your needs.
@@ -554,13 +557,13 @@ func (p *ParsedCertBundle) GetTLSConfig(usage TLSUsage) (*tls.Config, error) {
 		// Technically we only need one cert, but this doesn't duplicate code
 		certBundle, err := p.ToCertBundle()
 		if err != nil {
-			return nil, fmt.Errorf("Error converting parsed bundle to string bundle when getting TLS config: %s", err)
+			return nil, errwrap.Wrapf("error converting parsed bundle to string bundle when getting TLS config: {{err}}", err)
 		}
 
 		caPool := x509.NewCertPool()
 		ok := caPool.AppendCertsFromPEM([]byte(certBundle.CAChain[0]))
 		if !ok {
-			return nil, fmt.Errorf("Could not append CA certificate")
+			return nil, fmt.Errorf("could not append CA certificate")
 		}
 
 		if usage&TLSServer > 0 {

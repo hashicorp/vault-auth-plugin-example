@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"time"
 
 	"github.com/hashicorp/vault/helper/pluginutil"
 	"github.com/hashicorp/vault/logical"
@@ -75,11 +76,6 @@ func (b *backend) pathAuthLogin(_ context.Context, req *logical.Request, d *fram
 		return nil, logical.ErrPermissionDenied
 	}
 
-	ttl, _, err := b.SanitizeTTLStr("30s", "1h")
-	if err != nil {
-		return nil, err
-	}
-
 	// Compose the response
 	return &logical.Response{
 		Auth: &logical.Auth{
@@ -91,7 +87,8 @@ func (b *backend) pathAuthLogin(_ context.Context, req *logical.Request, d *fram
 				"fruit": "banana",
 			},
 			LeaseOptions: logical.LeaseOptions{
-				TTL:       ttl,
+				TTL:       30 * time.Second,
+				MaxTTL:    60 * time.Minute,
 				Renewable: true,
 			},
 		},
@@ -108,10 +105,5 @@ func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *fr
 		return nil, errors.New("internal data does not match")
 	}
 
-	ttl, maxTTL, err := b.SanitizeTTLStr("30s", "1h")
-	if err != nil {
-		return nil, err
-	}
-
-	return framework.LeaseExtend(ttl, maxTTL, b.System())(ctx, req, d)
+	return framework.LeaseExtend(30*time.Second, 60*time.Minute, b.System())(ctx, req, d)
 }
