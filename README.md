@@ -24,7 +24,7 @@ GitHub. Alternatively you can compile the plugin from source.
   $ mv vault-auth-plugin-example /etc/vault/plugins/vault-auth-plugin-example
   ```
 
-3. If you are running Vault on Linux as a non-root user, you should enable the plugin
+3. If you are running Vault with mlock on a supported platform as a non-root user, you should enable the plugin
 to use the mlock syscall just like you would for the vault binary itself (as mentioned
 [here](https://learn.hashicorp.com/vault/operations/ops-deployment-guide#step-2-install-vault)):
 
