@@ -21,7 +21,7 @@ GitHub. Alternatively you can compile the plugin from source.
 1. Move the compiled plugin into Vault's configured `plugin_directory`:
 
   ```sh
-  $ mv vault-auth-example /etc/vault/plugins/vault-auth-example
+  $ mv vault-auth-plugin-example /etc/vault/plugins/vault-auth-plugin-example
   ```
 
 1. Calculate the SHA256 of the plugin and register it in Vault's plugin catalog.
@@ -29,11 +29,11 @@ If you are downloading the pre-compiled binary, it is highly recommended that
 you use the published checksums to verify integrity.
 
   ```sh
-  $ export SHA256=$(shasum -a 256 "/etc/vault/plugins/vault-auth-example" | cut -d' ' -f1)
+  $ export SHA256=$(shasum -a 256 "/etc/vault/plugins/vault-auth-plugin-example" | cut -d' ' -f1)
 
   $ vault write sys/plugins/catalog/example-auth-plugin \
       sha_256="${SHA256}" \
-      command="vault-auth-example"
+      command="vault-auth-plugin-example"
   ```
 
 1. Mount the auth method:
