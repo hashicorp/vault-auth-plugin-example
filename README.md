@@ -26,7 +26,7 @@ GitHub. Alternatively you can compile the plugin from source.
 
 3. If you are running Vault on Linux as a non-root user, you should enable the plugin
 to use the mlock syscall just like you would for the vault binary itself (as mentioned
-[here](https://learn.hashicorp.com/vault/operations/ops-deployment-guide#step-2-install-vault):
+[here](https://learn.hashicorp.com/vault/operations/ops-deployment-guide#step-2-install-vault)):
 
  ```sh
  $ sudo setcap cap_ipc_lock=+ep /etc/vault/plugins/vault-auth-plugin-example
