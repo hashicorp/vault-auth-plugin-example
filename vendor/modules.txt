@@ -1,0 +1,131 @@
+# github.com/SermoDigital/jose v0.0.0-20161205224733-f6df55f235c2
+github.com/SermoDigital/jose/jws
+github.com/SermoDigital/jose
+github.com/SermoDigital/jose/crypto
+github.com/SermoDigital/jose/jwt
+# github.com/armon/go-radix v0.0.0-20170727155443-1fca145dffbc
+github.com/armon/go-radix
+# github.com/golang/protobuf v1.1.0
+github.com/golang/protobuf/proto
+github.com/golang/protobuf/ptypes
+github.com/golang/protobuf/ptypes/timestamp
+github.com/golang/protobuf/ptypes/any
+github.com/golang/protobuf/ptypes/duration
+# github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db
+github.com/golang/snappy
+# github.com/hashicorp/errwrap v0.0.0-20141028054710-7554cd9344ce
+github.com/hashicorp/errwrap
+# github.com/hashicorp/go-cleanhttp v0.0.0-20171218145408-d5fe4b57a186
+github.com/hashicorp/go-cleanhttp
+# github.com/hashicorp/go-hclog v0.0.0-20180402200405-69ff559dc25f
+github.com/hashicorp/go-hclog
+# github.com/hashicorp/go-immutable-radix v0.0.0-20180129170900-7f3cd4390caa
+github.com/hashicorp/go-immutable-radix
+# github.com/hashicorp/go-multierror v0.0.0-20171204182908-b7773ae21874
+github.com/hashicorp/go-multierror
+# github.com/hashicorp/go-plugin v0.0.0-20180331002553-e8d22c780116
+github.com/hashicorp/go-plugin
+# github.com/hashicorp/go-retryablehttp v0.0.0-20180518191107-fac0f38bc25d
+github.com/hashicorp/go-retryablehttp
+# github.com/hashicorp/go-rootcerts v0.0.0-20160503143440-6bb64b370b90
+github.com/hashicorp/go-rootcerts
+# github.com/hashicorp/go-sockaddr v0.0.0-20180320115054-6d291a969b86
+github.com/hashicorp/go-sockaddr
+# github.com/hashicorp/go-uuid v0.0.0-20180228145832-27454136f036
+github.com/hashicorp/go-uuid
+# github.com/hashicorp/go-version v0.0.0-20180322230233-23480c066577
+github.com/hashicorp/go-version
+# github.com/hashicorp/golang-lru v0.0.0-20180201235237-0fb14efe8c47
+github.com/hashicorp/golang-lru
+github.com/hashicorp/golang-lru/simplelru
+# github.com/hashicorp/hcl v0.0.0-20180404174102-ef8a98b0bbce
+github.com/hashicorp/hcl
+github.com/hashicorp/hcl/hcl/ast
+github.com/hashicorp/hcl/hcl/parser
+github.com/hashicorp/hcl/hcl/token
+github.com/hashicorp/hcl/json/parser
+github.com/hashicorp/hcl/hcl/scanner
+github.com/hashicorp/hcl/hcl/strconv
+github.com/hashicorp/hcl/json/scanner
+github.com/hashicorp/hcl/json/token
+# github.com/hashicorp/vault v0.0.0-20180521132124-c368238fe0eb
+github.com/hashicorp/vault/helper/pluginutil
+github.com/hashicorp/vault/logical
+github.com/hashicorp/vault/logical/framework
+github.com/hashicorp/vault/logical/plugin
+github.com/hashicorp/vault/api
+github.com/hashicorp/vault/helper/certutil
+github.com/hashicorp/vault/helper/mlock
+github.com/hashicorp/vault/helper/wrapping
+github.com/hashicorp/vault/version
+github.com/hashicorp/vault/helper/consts
+github.com/hashicorp/vault/helper/jsonutil
+github.com/hashicorp/vault/helper/logging
+github.com/hashicorp/vault/physical
+github.com/hashicorp/vault/physical/inmem
+github.com/hashicorp/vault/helper/errutil
+github.com/hashicorp/vault/helper/parseutil
+github.com/hashicorp/vault/helper/salt
+github.com/hashicorp/vault/helper/strutil
+github.com/hashicorp/vault/logical/plugin/pb
+github.com/hashicorp/vault/helper/compressutil
+github.com/hashicorp/vault/helper/locksutil
+github.com/hashicorp/vault/helper/pathmanager
+# github.com/hashicorp/yamux v0.0.0-20180314200745-2658be15c5f0
+github.com/hashicorp/yamux
+# github.com/mitchellh/go-homedir v0.0.0-20161203194507-b8bc1bf76747
+github.com/mitchellh/go-homedir
+# github.com/mitchellh/go-testing-interface v0.0.0-20171004221916-a61a99592b77
+github.com/mitchellh/go-testing-interface
+# github.com/mitchellh/mapstructure v0.0.0-20180511142126-bb74f1db0675
+github.com/mitchellh/mapstructure
+# github.com/oklog/run v1.0.0
+github.com/oklog/run
+# github.com/ryanuber/go-glob v0.0.0-20160226084822-572520ed46db
+github.com/ryanuber/go-glob
+# golang.org/x/net v0.0.0-20180519122554-57065200b4b0
+golang.org/x/net/context
+golang.org/x/net/http2
+golang.org/x/net/trace
+golang.org/x/net/http/httpguts
+golang.org/x/net/http2/hpack
+golang.org/x/net/idna
+golang.org/x/net/internal/timeseries
+# golang.org/x/sys v0.0.0-20180514143608-7c87d13f8e83
+golang.org/x/sys/unix
+# golang.org/x/text v0.3.0
+golang.org/x/text/secure/bidirule
+golang.org/x/text/unicode/bidi
+golang.org/x/text/unicode/norm
+golang.org/x/text/transform
+# golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
+golang.org/x/time/rate
+# google.golang.org/genproto v0.0.0-20180518175338-11a468237815
+google.golang.org/genproto/googleapis/rpc/status
+# google.golang.org/grpc v1.12.0
+google.golang.org/grpc
+google.golang.org/grpc/credentials
+google.golang.org/grpc/health
+google.golang.org/grpc/health/grpc_health_v1
+google.golang.org/grpc/balancer
+google.golang.org/grpc/balancer/roundrobin
+google.golang.org/grpc/channelz
+google.golang.org/grpc/codes
+google.golang.org/grpc/connectivity
+google.golang.org/grpc/encoding
+google.golang.org/grpc/encoding/proto
+google.golang.org/grpc/grpclb/grpc_lb_v1/messages
+google.golang.org/grpc/grpclog
+google.golang.org/grpc/internal
+google.golang.org/grpc/keepalive
+google.golang.org/grpc/metadata
+google.golang.org/grpc/naming
+google.golang.org/grpc/peer
+google.golang.org/grpc/resolver
+google.golang.org/grpc/resolver/dns
+google.golang.org/grpc/resolver/passthrough
+google.golang.org/grpc/stats
+google.golang.org/grpc/status
+google.golang.org/grpc/tap
+google.golang.org/grpc/transport
+google.golang.org/grpc/balancer/base

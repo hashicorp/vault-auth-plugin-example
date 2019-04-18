@@ -39,7 +39,7 @@ you use the published checksums to verify integrity.
 1. Mount the auth method:
 
   ```sh
-  $ vault auth-enable \
+  $ vault auth enable \
       -path="example" \
       -plugin-name="example-auth-plugin" plugin
   ```

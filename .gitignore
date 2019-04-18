@@ -16,6 +16,10 @@
 # Compiled binaries
 /bin/
 /pkg/
+vault-auth-plugin-example
 
 # Local development tmp
 /tmp/
+
+# GoLandIDE files
+.idea
