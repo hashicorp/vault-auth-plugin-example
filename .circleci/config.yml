@@ -1,0 +1,45 @@
+version: 2
+
+references:
+  images:
+    go: &GOLANG_IMAGE golang:1.12.4-stretch  # Pin Go to patch version (ex: 1.2.3)
+
+  environment: &ENVIRONMENT
+    GO_VERSION: 1.12.4  # Pin Go to patch version (ex: 1.2.3)
+
+jobs:
+  build:
+    docker:
+      - image: *GOLANG_IMAGE
+    environment:
+      <<: *ENVIRONMENT
+    steps:
+      - checkout
+      - run:
+          name: Build plugin binary
+          command: go build
+      - persist_to_workspace:
+          root: .
+          paths:
+            - vault-auth-plugin-example
+
+  test:
+    machine: true
+    steps:
+      - attach_workspace:
+          at: workspace
+      - run:
+          name: Test plugin
+          command: |
+            set -eux -o pipefail
+            ./docker-test-nobuild.sh workspace
+
+workflows:
+  version: 2
+
+  ci:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
