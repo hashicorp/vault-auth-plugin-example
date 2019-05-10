@@ -21,8 +21,6 @@ OWNER := $(notdir $(patsubst %/,%,$(dir $(PROJECT))))
 NAME := $(notdir $(PROJECT))
 GIT_COMMIT ?= $(shell git rev-parse --short HEAD)
 VERSION := $(shell awk -F\" '/Version/ { print $$2; exit }' "${CURRENT_DIR}/version/version.go")
-EXTERNAL_TOOLS = \
-	github.com/golang/dep/cmd/dep
 
 # Current system information
 GOOS ?= $(shell go env GOOS)
@@ -81,22 +79,6 @@ define make-xc-target
   .PHONY: build
 endef
 $(foreach goarch,$(XC_ARCH),$(foreach goos,$(XC_OS),$(eval $(call make-xc-target,$(goos),$(goarch),$(if $(findstring windows,$(goos)),.exe,)))))
-
-# bootstrap installs the necessary go tools for development or build.
-bootstrap:
-	@echo "==> Bootstrapping ${PROJECT}"
-	@for t in ${EXTERNAL_TOOLS}; do \
-		echo "--> Installing $$t" ; \
-		go get -u "$$t"; \
-	done
-.PHONY: bootstrap
-
-# deps updates all dependencies for this project.
-deps:
-	@echo "==> Updating deps for ${PROJECT}"
-	@dep ensure -update
-	@dep prune
-.PHONY: deps
 
 # dev builds and installs the project locally.
 dev:
