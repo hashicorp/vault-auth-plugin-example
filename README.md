@@ -31,9 +31,10 @@ you use the published checksums to verify integrity.
   ```sh
   $ export SHA256=$(shasum -a 256 "/etc/vault/plugins/vault-auth-plugin-example" | cut -d' ' -f1)
 
-  $ vault write sys/plugins/catalog/example-auth-plugin \
-      sha_256="${SHA256}" \
-      command="vault-auth-plugin-example"
+  $ vault plugin register \
+      -sha256="${SHA256}" \
+      -command="vault-auth-plugin-example" \
+      auth example-auth-plugin
   ```
 
 1. Mount the auth method:
