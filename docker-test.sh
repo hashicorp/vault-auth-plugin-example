@@ -7,6 +7,7 @@ GOOS=linux go build
 docker kill vaultplg 2>/dev/null || true
 tmpdir=$(mktemp -d vaultplgXXXXXX)
 mkdir "$tmpdir/data"
+docker pull hashicorp/vault
 docker run --rm -d -p8200:8200 --name vaultplg -v "$(pwd)/$tmpdir/data":/data -v $(pwd):/example --cap-add=IPC_LOCK -e 'VAULT_LOCAL_CONFIG=
 {
   "backend": {"file": {"path": "/data"}},
@@ -16,7 +17,7 @@ docker run --rm -d -p8200:8200 --name vaultplg -v "$(pwd)/$tmpdir/data":/data -v
   "disable_mlock": true,
   "api_addr": "http://localhost:8200"
 }
-' vault server
+' hashicorp/vault server
 sleep 1
 
 export VAULT_ADDR=http://localhost:8200
