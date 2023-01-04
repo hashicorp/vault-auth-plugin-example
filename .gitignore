@@ -23,3 +23,6 @@ vault-auth-plugin-example
 
 # GoLandIDE files
 .idea
+
+# docker-test.sh folder
+/vaultplg*
