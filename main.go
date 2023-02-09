@@ -25,9 +25,11 @@ func main() {
 	tlsConfig := apiClientMeta.GetTLSConfig()
 	tlsProviderFunc := api.VaultPluginTLSProvider(tlsConfig)
 
-	if err := plugin.Serve(&plugin.ServeOpts{
+	if err := plugin.ServeMultiplex(&plugin.ServeOpts{
 		BackendFactoryFunc: Factory,
-		TLSProviderFunc:    tlsProviderFunc,
+		// set the TLSProviderFunc so that the plugin maintains backwards
+		// compatibility with Vault versions that don’t support plugin AutoMTLS
+		TLSProviderFunc: tlsProviderFunc,
 	}); err != nil {
 		log.Fatal(err)
 	}
@@ -55,10 +57,10 @@ func Backend(c *logical.BackendConfig) *backend {
 			Unauthenticated: []string{"login"},
 		},
 		Paths: []*framework.Path{
-			&framework.Path{
+			{
 				Pattern: "login",
 				Fields: map[string]*framework.FieldSchema{
-					"password": &framework.FieldSchema{
+					"password": {
 						Type: framework.TypeString,
 					},
 				},
