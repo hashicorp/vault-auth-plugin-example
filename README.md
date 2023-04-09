@@ -23,6 +23,7 @@ GitHub. Alternatively you can compile the plugin from source.
   ```sh
   $ mv vault-auth-plugin-example /etc/vault/plugins/vault-auth-plugin-example
   ```
+  Note that on MacOS, the etc directory is a symlink. Vault does not allow symlink directories for plugins.
 
 1. Calculate the SHA256 of the plugin and register it in Vault's plugin catalog.
 If you are downloading the pre-compiled binary, it is highly recommended that
