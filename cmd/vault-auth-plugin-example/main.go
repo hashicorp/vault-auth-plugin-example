@@ -15,6 +15,8 @@ import (
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/plugin"
+
+	"github.com/hashicorp/vault-auth-plugin-example/version"
 )
 
 func main() {
@@ -69,6 +71,7 @@ func Backend(c *logical.BackendConfig) *backend {
 				},
 			},
 		},
+		RunningVersion: "v" + version.Version,
 	}
 
 	return &b
