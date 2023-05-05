@@ -5,7 +5,7 @@
 
 set -ex
 
-GOOS=linux go build
+GOOS=linux go build -o vault-auth-plugin-example cmd/vault-auth-plugin-example/main.go
 
 docker kill vaultplg 2>/dev/null || true
 tmpdir=$(mktemp -d vaultplgXXXXXX)
@@ -36,6 +36,10 @@ vault write sys/plugins/catalog/auth/example-auth-plugin \
 
 vault auth enable \
     -path="example" \
-    -plugin-name="example-auth-plugin" plugin
+    -plugin-name="example-auth-plugin" \
+    -plugin-version=0.2.0 \
+    plugin
+
+vault read -field=plugin_version sys/auth/example/tune
 
 VAULT_TOKEN=  vault write auth/example/login password="super-secret-password"

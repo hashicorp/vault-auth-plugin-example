@@ -16,7 +16,7 @@
 # Compiled binaries
 /bin/
 /pkg/
-vault-auth-plugin-example
+/vault-auth-plugin-example
 
 # Local development tmp
 /tmp/
