@@ -81,11 +81,16 @@ func Backend(c *logical.BackendConfig) *backend {
 }
 
 func (b *backend) pathAuthLogin(_ context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	b.Logger().Debug("login requested")
+
 	password := d.Get("password").(string)
 
 	if subtle.ConstantTimeCompare([]byte(password), []byte("super-secret-password")) != 1 {
+		b.Logger().Error("login failed", "err", logical.ErrPermissionDenied.Error())
 		return nil, logical.ErrPermissionDenied
 	}
+
+	b.Logger().Trace("login succeeded")
 
 	// Compose the response
 	return &logical.Response{
@@ -107,9 +112,13 @@ func (b *backend) pathAuthLogin(_ context.Context, req *logical.Request, d *fram
 }
 
 func (b *backend) pathAuthRenew(ctx context.Context, req *logical.Request, d *framework.FieldData) (*logical.Response, error) {
+	b.Logger().Debug("auth renew requested")
 	if req.Auth == nil {
+		b.Logger().Error("login failed")
 		return nil, errors.New("request auth was nil")
 	}
+
+	b.Logger().Trace("auth renew succeeded")
 
 	secretValue := req.Auth.InternalData["secret_value"].(string)
 	if secretValue != "abcd1234" {
