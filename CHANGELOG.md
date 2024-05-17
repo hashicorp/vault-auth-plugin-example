@@ -1,5 +1,10 @@
 ## Unreleased
 
+## 0.2.2 (May 17, 2024)
+
+IMPROVEMENTS:
+* Updated dependencies [1840d5c](https://github.com/hashicorp/vault-auth-plugin-example/commit/1840d5cd1f4cf126bc9fcad4463b61dd8a123822)
+
 ## 0.2.1 (Jan 19, 2024)
 
 IMPROVEMENTS:
