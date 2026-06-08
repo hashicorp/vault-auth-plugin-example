@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/sdk/plugin"
 
+	example "github.com/hashicorp/vault-auth-plugin-example"
 	"github.com/hashicorp/vault-auth-plugin-example/version"
 )
 
@@ -59,7 +60,7 @@ func Backend(c *logical.BackendConfig) *backend {
 		BackendType: logical.TypeCredential,
 		AuthRenew:   b.pathAuthRenew,
 		PathsSpecial: &logical.Paths{
-			Unauthenticated: []string{"login"},
+			Unauthenticated: []string{"login", "coded-error/*"},
 		},
 		Paths: []*framework.Path{
 			{
@@ -73,6 +74,7 @@ func Backend(c *logical.BackendConfig) *backend {
 					logical.UpdateOperation: b.pathAuthLogin,
 				},
 			},
+			example.PathErrorExamples(b.Backend),
 		},
 		RunningVersion: "v" + version.Version,
 	}
