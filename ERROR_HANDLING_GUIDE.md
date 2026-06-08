@@ -55,6 +55,20 @@ return nil, logical.CodedError(503, "service unavailable")
 return nil, logical.CodedError(504, "external system timeout")
 ```
 
+The Vault API will return an error response with the specified HTTP status code
+and message:
+
+```json
+$ curl -s -v -H "X-Vault-Token: root" http://127.0.0.1:8200/v1/auth/example/coded-error/400
+...
+> GET /v1/auth/example/coded-error/400 HTTP/1.1
+...
+< HTTP/1.1 400 Bad Request
+...
+
+{"errors":["bad request: invalid input provided"]}
+```
+
 **Why this works:**
 - Implements `logical.HTTPCodedError` interface
 - Preserved through gRPC translation layer
