@@ -26,6 +26,7 @@ Plugin Error → gRPC Translation → Vault Core → HTTP Response → Client
 ### ❌ Don't
 1. Never return generic `errors.New()` - they become HTTP 500
 1. Don't return both response and error - response data is lost
+1. Don't pass through an error code if the Vault client can't programmatically alter their behavior to fix it.
 
 ### Benefits of This Pattern
 
