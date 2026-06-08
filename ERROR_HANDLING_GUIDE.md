@@ -77,6 +77,85 @@ return nil, logical.CodedError(504, "external system timeout")
 | 503 | Service Unavailable | System overloaded/sealed |
 | 504 | Gateway Timeout | External system timeout |
 
+## When to Pass Through vs. Translate Error Codes
+
+### The Golden Rule
+
+**"Only pass through an error code if the Vault client can programmatically alter their behavior to fix it."**
+
+Ask yourself: **"Can the client change their request to make this succeed?"**
+
+- **Yes** → Pass through the appropriate 4xx code
+- **No** → Translate to 502 (external system issue) or 504 (timeout)
+
+### ✅ Pass Through - Client Can Fix It
+
+**400 Bad Request** - Client sent invalid data
+```go
+// Client can fix: send valid username format
+return nil, logical.CodedError(400, "username must be alphanumeric")
+```
+
+**401 Unauthorized** - Client needs to authenticate
+```go
+// Client can fix: provide valid credentials
+return nil, logical.CodedError(401, "invalid credentials")
+```
+
+**403 Forbidden** - Client lacks permissions
+```go
+// Client can fix: request with proper permissions/token
+return nil, logical.CodedError(403, "insufficient permissions for this role")
+```
+
+**404 Not Found** - Client requested non-existent resource
+```go
+// Client can fix: request a different resource
+return nil, logical.CodedError(404, "user not found in directory")
+```
+
+**429 Too Many Requests** - Client is making too many requests
+```go
+// Client can fix: implement backoff/retry logic
+return nil, logical.CodedError(429, "external system rate limit exceeded, retry after 60s")
+```
+
+**NOTE**: When passing a 429 back to the client, explicitly mention in the
+error message that the upstream system is rate-limiting, not Vault itself. This
+helps operators distinguish between Vault's internal rate-limiting features and
+external dependencies.
+
+### ❌ Translate to 502/504 - Client Cannot Fix It
+
+**External 401/403** → **502 Bad Gateway**
+```go
+// Client CANNOT fix: plugin's credentials are invalid
+conn, err := ldap.Bind(pluginUsername, pluginPassword)
+if err != nil && errors.Is(err, ldap.ErrInvalidCredentials) {
+    return nil, logical.CodedError(502, "plugin authentication to external system failed")
+}
+```
+
+**External 500** → **502 Bad Gateway**
+```go
+// Client CANNOT fix: external system has internal error
+resp, err := externalAPI.Call()
+if err != nil && resp.StatusCode == 500 {
+    return nil, logical.CodedError(502, "external system error")
+}
+```
+
+**External timeout** → **504 Gateway Timeout**
+```go
+// Client CANNOT fix: external system not responding
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+result, err := conn.SearchWithContext(ctx, searchRequest)
+if err != nil && errors.Is(err, context.DeadlineExceeded) {
+    return nil, logical.CodedError(504, "external system timeout")
+}
+```
+
 ## Handling External System Errors
 
 When integrating with external systems (LDAP, databases, APIs), wrap their errors appropriately:
@@ -125,6 +204,10 @@ return nil, wrappedErr
 ```
 
 Prefer `%w` for error wrapping to preserve error chains for making test assertions.
+
+**Warning**: Vault constructs the final client API error string by evaluating
+the entire error chain. Ensure that any context added via fmt.Errorf does not
+contain sensitive information.
 
 ## Response + Error Anti-Pattern
 
