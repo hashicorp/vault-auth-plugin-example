@@ -105,22 +105,12 @@ Ask yourself: **"Can the client change their request to make this succeed?"**
 
 ### ✅ Pass Through - Client Can Fix It
 
+These are non-exhaustive examples of when to pass through specific 4xx codes:
+
 **400 Bad Request** - Client sent invalid data
 ```go
 // Client can fix: send valid username format
 return nil, logical.CodedError(400, "username must be alphanumeric")
-```
-
-**401 Unauthorized** - Client needs to authenticate
-```go
-// Client can fix: provide valid credentials
-return nil, logical.CodedError(401, "invalid credentials")
-```
-
-**403 Forbidden** - Client lacks permissions
-```go
-// Client can fix: request with proper permissions/token
-return nil, logical.CodedError(403, "insufficient permissions for this role")
 ```
 
 **404 Not Found** - Client requested non-existent resource
@@ -142,14 +132,8 @@ external dependencies.
 
 ### ❌ Translate to 502/504 - Client Cannot Fix It
 
-**External 401/403** → **502 Bad Gateway**
-```go
-// Client CANNOT fix: plugin's credentials are invalid
-conn, err := ldap.Bind(pluginUsername, pluginPassword)
-if err != nil && errors.Is(err, ldap.ErrInvalidCredentials) {
-    return nil, logical.CodedError(502, "plugin authentication to external system failed")
-}
-```
+When the error is due to an external system issue that the client cannot fix,
+translate to 502 or 504.
 
 **External 500** → **502 Bad Gateway**
 ```go
@@ -168,42 +152,6 @@ defer cancel()
 result, err := conn.SearchWithContext(ctx, searchRequest)
 if err != nil && errors.Is(err, context.DeadlineExceeded) {
     return nil, logical.CodedError(504, "external system timeout")
-}
-```
-
-## Handling External System Errors
-
-When integrating with external systems (LDAP, databases, APIs), wrap their errors appropriately:
-
-```go
-// Example: LDAP connection error
-conn, err := ldap.Dial("tcp", server)
-if err != nil {
-    // Network/connection errors → 502 Bad Gateway
-    return nil, logical.CodedError(http.StatusBadGateway,
-        fmt.Sprintf("failed to connect to LDAP server: %w", err))
-}
-
-// Example: LDAP timeout
-ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-defer cancel()
-result, err := conn.SearchWithContext(ctx, searchRequest)
-if err != nil {
-    if errors.Is(err, context.DeadlineExceeded) {
-        // Timeout → 504 Gateway Timeout
-        return nil, logical.CodedError(http.StatusGatewayTimeout,
-            "LDAP search timed out")
-    }
-    // Other LDAP errors → 502 Bad Gateway
-    return nil, logical.CodedError(http.StatusBadGateway,
-        fmt.Sprintf("LDAP search failed: %w", err))
-}
-
-// Example: User not found in LDAP
-if len(result.Entries) == 0 {
-    // Not found → 404 Not Found
-    return nil, logical.CodedError(http.StatusNotFound,
-        "user not found in LDAP directory")
 }
 ```
 
@@ -321,6 +269,37 @@ return &logical.Response{
     Warnings: []string{"deprecated endpoint"},
 }, nil
 ```
+
+### Common Patterns in Vault Plugins
+
+These are common patterns you may see in existing Vault plugins. While they may
+be technically valid, prefer using `logical.CodedError()` for clarity and
+consistency.
+
+#### logical.ErrorResponse() Pattern
+
+```go
+// Returns HTTP 400 (Bad Request) with error in response body
+return logical.ErrorResponse("invalid input"), nil
+```
+
+Equivalent to:
+```go
+return nil, logical.CodedError(400, "invalid input")
+```
+
+#### nil + Error Pattern
+
+```go
+// Returns HTTP 500 (internal error) with error in response body
+return nil, errors.New("internal error occurred")
+```
+
+Equivalent to:
+```go
+return nil, logical.CodedError(500, "internal error occurred")
+```
+
 
 ## Testing the Examples
 
