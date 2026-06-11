@@ -19,14 +19,26 @@ Plugin Error → gRPC Translation → Vault Core → HTTP Response → Client
 
 1. Always use `logical.CodedError()` for all errors
 1. Be explicit about status codes
-1. Wrap external errors with appropriate status codes (502, 504)
+1. Return specific 4xx errors for errors internal to Vault (validation, auth, etc.)
+1. Translate external system errors to 502/504 (bad gateway/timeout)
 1. Prefer `%w` for error wrapping to preserve error chains for making test assertions
 1. Use warnings for non-error information in successful responses
 
 ### ❌ Don't
 1. Never return generic `errors.New()` - they become HTTP 500
 1. Don't return both response and error - response data is lost
-1. Don't pass through an error code if the Vault client can't programmatically alter their behavior to fix it.
+1. Don't pass through external system error codes unless there's good justification and consensus
+
+### Error Code Guidelines
+
+**General Rule:**
+- **4xx errors** → Errors internal to Vault (validation, authentication, authorization, etc.)
+- **502/504 errors** → Errors from external systems (translate external errors)
+
+**Special Case:**
+- Pass through error from external system **only** with good justification and consensus
+
+**Note**: Even in pass-through cases, clearly indicate in the error message that the error originates from an external system, not Vault itself.
 
 ### Benefits of This Pattern
 
@@ -40,7 +52,7 @@ Plugin Error → gRPC Translation → Vault Core → HTTP Response → Client
 **Always use `logical.CodedError()` for all errors:**
 
 ```go
-// Client Errors (4xx)
+// Vault Client Errors (4xx)
 return nil, logical.CodedError(400, "invalid input")
 return nil, logical.CodedError(401, "authentication required")
 return nil, logical.CodedError(403, "insufficient permissions")
@@ -70,90 +82,25 @@ $ curl -s -v -H "X-Vault-Token: root" http://127.0.0.1:8200/v1/auth/example/code
 {"errors":["bad request: invalid input provided"]}
 ```
 
-**Why this works:**
-- Implements `logical.HTTPCodedError` interface
-- Preserved through gRPC translation layer
-- Explicitly sets the HTTP status code
-- Works for any HTTP status code
-- Consistent pattern across all errors
+
 
 ## Common HTTP Status Codes
 
 | Code | Meaning | When to Use |
 |------|---------|-------------|
-| 400 | Bad Request | Invalid client input, validation errors |
-| 401 | Unauthorized | Authentication required or failed |
-| 403 | Forbidden | Authenticated but not authorized |
-| 404 | Not Found | Resource doesn't exist |
-| 409 | Conflict | Resource already exists |
-| 429 | Too Many Requests | Rate limiting |
-| 500 | Internal Server Error | Unexpected plugin error (avoid!) |
-| 502 | Bad Gateway | External system error |
-| 503 | Service Unavailable | System overloaded/sealed |
-| 504 | Gateway Timeout | External system timeout |
+| **4xx - Internal to Vault** | | |
+| 400 | Bad Request | Invalid input validation (Vault validates) |
+| 401 | Unauthorized | Authentication failed (Vault authenticates) |
+| 403 | Forbidden | Authorization denied (Vault policy engine) |
+| 404 | Not Found | Resource not found (in Vault storage) |
+| 409 | Conflict | Resource conflict (in Vault) |
+| 422 | Unprocessable Entity | Semantic validation failed (Vault logic) |
+| **5xx - External Systems** | | |
+| 500 | Internal Server Error | Unexpected Vault plugin error (avoid!) |
+| 502 | Bad Gateway | **External system error (translate all external errors)** |
+| 503 | Service Unavailable | Vault overloaded/sealed |
+| 504 | Gateway Timeout | **External system timeout** |
 
-## When to Pass Through vs. Translate Error Codes
-
-### The Golden Rule
-
-**"Only pass through an error code if the Vault client can programmatically alter their behavior to fix it."**
-
-Ask yourself: **"Can the client change their request to make this succeed?"**
-
-- **Yes** → Pass through the appropriate 4xx code
-- **No** → Translate to 502 (external system issue) or 504 (timeout)
-
-### ✅ Pass Through - Client Can Fix It
-
-These are non-exhaustive examples of when to pass through specific 4xx codes:
-
-**400 Bad Request** - Client sent invalid data
-```go
-// Client can fix: send valid username format
-return nil, logical.CodedError(400, "username must be alphanumeric")
-```
-
-**404 Not Found** - Client requested non-existent resource
-```go
-// Client can fix: request a different resource
-return nil, logical.CodedError(404, "user not found in directory")
-```
-
-**429 Too Many Requests** - Client is making too many requests
-```go
-// Client can fix: implement backoff/retry logic
-return nil, logical.CodedError(429, "external system rate limit exceeded, retry after 60s")
-```
-
-**NOTE**: When passing a 429 back to the client, explicitly mention in the
-error message that the upstream system is rate-limiting, not Vault itself. This
-helps operators distinguish between Vault's internal rate-limiting features and
-external dependencies.
-
-### ❌ Translate to 502/504 - Client Cannot Fix It
-
-When the error is due to an external system issue that the client cannot fix,
-translate to 502 or 504.
-
-**External 500** → **502 Bad Gateway**
-```go
-// Client CANNOT fix: external system has internal error
-resp, err := externalAPI.Call()
-if err != nil && resp.StatusCode == 500 {
-    return nil, logical.CodedError(502, "external system error")
-}
-```
-
-**External timeout** → **504 Gateway Timeout**
-```go
-// Client CANNOT fix: external system not responding
-ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-defer cancel()
-result, err := conn.SearchWithContext(ctx, searchRequest)
-if err != nil && errors.Is(err, context.DeadlineExceeded) {
-    return nil, logical.CodedError(504, "external system timeout")
-}
-```
 
 ## Error Wrapping
 
@@ -237,23 +184,16 @@ Vault Core resolves the final status code (`sdk/logical/response_util.go`):
    - Predefined errors → Uses mapped code
    - Generic errors → Uses default
 
-3. **Final adjustment** (`sdk/logical/response_util.go`):
-```go
-// Allow HTTPCoded error passthrough to specify a code
-if t, ok := err.(HTTPCodedError); ok {
-    *status = t.Code()
-}
-```
 
 ## What NOT to Do
 
 ### ❌ Generic Errors
 ```go
-// DON'T: Returns HTTP 500 (looks like a bug)
+// DON'T: Returns HTTP 500
 return nil, errors.New("something went wrong")
 
 // DO: Be explicit with status code
-return nil, logical.CodedError(500, "internal error occurred")
+return nil, logical.CodedError(502, "external system error occurred")
 ```
 
 ### ❌ Response + Error
@@ -299,7 +239,6 @@ Equivalent to:
 ```go
 return nil, logical.CodedError(500, "internal error occurred")
 ```
-
 
 ## Testing the Examples
 

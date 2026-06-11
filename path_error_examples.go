@@ -48,46 +48,44 @@ func pathErrorExamplesRead(ctx context.Context, req *logical.Request, d *framewo
 	statusCode := d.Get("status_code").(string)
 
 	switch statusCode {
+	// 4xx - Errors internal to Vault
 	case "400":
-		return nil, logical.CodedError(http.StatusBadRequest, "bad request: invalid input provided")
+		return nil, logical.CodedError(http.StatusBadRequest, "invalid input: username must be alphanumeric")
 
-	case "401":
-		return nil, logical.CodedError(http.StatusUnauthorized, "authentication required or failed")
-
-	case "403":
-		return nil, logical.CodedError(http.StatusForbidden, "insufficient permissions to access this resource")
+	// 401 and 403 are implicitly handled by Vault
 
 	case "404":
-		return nil, logical.CodedError(http.StatusNotFound, "requested resource does not exist")
+		return nil, logical.CodedError(http.StatusNotFound, "resource not found in Vault storage")
 
 	case "405":
 		return nil, logical.CodedError(http.StatusMethodNotAllowed, "operation not supported")
 
 	case "409":
-		return nil, logical.CodedError(http.StatusConflict, "resource already exists")
+		return nil, logical.CodedError(http.StatusConflict, "resource already exists in Vault")
 
 	case "422":
-		return nil, logical.CodedError(http.StatusUnprocessableEntity, "request validation failed")
+		return nil, logical.CodedError(http.StatusUnprocessableEntity, "validation failed: TTL exceeds max_ttl")
 
 	case "429":
 		return nil, logical.CodedError(http.StatusTooManyRequests, "rate limit exceeded")
 
+	// 5xx - Server and external system errors
 	case "500":
-		return nil, logical.CodedError(http.StatusInternalServerError, "internal server error")
+		return nil, logical.CodedError(http.StatusInternalServerError, "internal Vault plugin error")
 
 	case "502":
-		return nil, logical.CodedError(http.StatusBadGateway, "external system error")
+		return nil, logical.CodedError(http.StatusBadGateway, "external system error: upstream service returned error")
 
 	case "503":
-		return nil, logical.CodedError(http.StatusServiceUnavailable, "service temporarily unavailable")
+		return nil, logical.CodedError(http.StatusServiceUnavailable, "Vault service temporarily unavailable")
 
 	case "504":
-		return nil, logical.CodedError(http.StatusGatewayTimeout, "external system timeout")
+		return nil, logical.CodedError(http.StatusGatewayTimeout, "external system timeout: upstream service did not respond")
 
 	default:
 		// Unknown status code
 		return nil, logical.CodedError(http.StatusBadRequest,
-			fmt.Sprintf("unknown status code '%s'. Valid codes: 400, 401, 403, 404, 405, 409, 422, 429, 500, 502, 503, 504", statusCode))
+			fmt.Sprintf("unknown status code '%s'. Valid codes: 400, 404, 405, 409, 422, 429, 500, 502, 503, 504", statusCode))
 	}
 }
 
