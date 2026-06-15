@@ -66,6 +66,23 @@ token_policies  	[default my-policy other-policy]
 token_meta_fruit	"banana"
 ```
 
+## Testing the Error Examples
+
+After building and registering the plugin, you can test different HTTP status
+codes:
+
+```bash
+# Test various status codes
+vault read auth/example/coded-error/400  # Bad Request
+vault read auth/example/coded-error/401  # Unauthorized
+vault read auth/example/coded-error/403  # Forbidden
+vault read auth/example/coded-error/404  # Not Found
+vault read auth/example/coded-error/500  # Internal Server Error
+vault read auth/example/coded-error/502  # Bad Gateway
+vault read auth/example/coded-error/504  # Gateway Timeout
+```
+
+
 ## Should I Use This?
 
 No, please do not. This is an example Vault Plugin that should be use for
